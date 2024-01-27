@@ -1,5 +1,4 @@
-import mysql.connector
-import psycopg2
+import pyodbc
 from datetime import datetime
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
@@ -9,14 +8,14 @@ import logging
 logging.basicConfig(filename='arvore_dag.log', level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
-# Função para conectar ao MySQL
-def connect_mysql():
-    return mysql.connector.connect(
-      host="4.228.226.70",
-      user="u_arvore",
-      password="u_arvore",
-      database="arvore"
-    )
+# Função para conectar ao Azure SQL Database
+def connect_azure():
+    server = 'adventureworks-arvore.database.windows.net'
+    database = 'AdventureWorks'
+    username = 'administrador'
+    password = '123Admin'
+    driver= '{ODBC Driver 17 for SQL Server}'
+    return pyodbc.connect('DRIVER='+driver+';SERVER='+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
 
 # Função para conectar ao Redshift
 def connect_redshift():
