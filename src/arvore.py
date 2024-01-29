@@ -1,7 +1,7 @@
 import pyodbc
 from datetime import datetime
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python import PythonOperator
 import logging
 
 # Configurando o logging
@@ -30,17 +30,17 @@ def connect_redshift():
 # Definindo as funções para a carga inicial e carga incremental
 def carga_total(table_name, dag):
     try:
-        # Lendo os dados do MySQL
-        con_mysql = connect_mysql()
-        mysql_cursor = con_mysql.cursor()
+        # Lendo os dados do Azure SQL Database
+        con_azure = connect_azure()
+        azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
         redshift_cursor = redshift_conn.cursor()
-        mysql_cursor.execute(f"SELECT * FROM {table_name}")
-        dado = mysql_cursor.fetchall()
+        azure_cursor.execute(f"SELECT * FROM {table_name}")
+        dado = azure_cursor.fetchall()
 
-        # Obtendo a estrutura da tabela do MySQL
-        mysql_cursor.execute(f"DESCRIBE {table_name}")
-        estrutura = mysql_cursor.fetchall()
+        # Obtendo a estrutura da tabela do Azure SQL Database
+        azure_cursor.execute(f"DESCRIBE {table_name}")
+        estrutura = azure_cursor.fetchall()
 
         # Criando a tabela no Redshift com a mesma estrutura
         cria_tabela = f"CREATE TABLE dados.{table_name} ("
@@ -66,18 +66,18 @@ def carga_total(table_name, dag):
 
 def carga_incremental(table_name, dag):
     try:
-        con_mysql = connect_mysql()
-        mysql_cursor = con_mysql.cursor()
+        con_azure = connect_azure()
+        azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
         redshift_cursor = redshift_conn.cursor()
         # Obtendo a data da última atualização no Redshift
         redshift_cursor.execute(f"SELECT MAX(updated_at) FROM dados.{table_name}")
         ultima_atualizacao = redshift_cursor.fetchone()[0]
 
-        # Lendo os dados atualizados do MySQL
+        # Lendo os dados atualizados do Azure
         ultima_atualizacao_str = ultima_atualizacao.strftime('%Y-%m-%d %H:%M:%S')
-        mysql_cursor.execute(f"SELECT * FROM {table_name} WHERE updated_at > '{ultima_atualizacao_str}'")
-        dado = mysql_cursor.fetchall()
+        azure_cursor.execute(f"SELECT * FROM {table_name} WHERE updated_at > '{ultima_atualizacao_str}'")
+        dado = azure_cursor.fetchall()
 
         # Atualizando os dados no Redshift
         for row in dado:
@@ -101,20 +101,20 @@ def carga_incremental(table_name, dag):
 # Definindo a função para a task de decisão
 def decisao(*args, **kwargs):
     try:
-        con_mysql = connect_mysql()
-        mysql_cursor = con_mysql.cursor()
+        con_azure = connect_azure()
+        azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
         redshift_cursor = redshift_conn.cursor()
-        mysql_cursor.execute("SHOW TABLES")
-        tabelas_mysql = [t[0] for t in mysql_cursor.fetchall()]
-        print(tabelas_mysql)
+        azure_cursor.execute("SELECT table_name FROM information_schema.tables")
+        tabelas_azure = [t[0] for t in azure_cursor.fetchall()]
+        print(tabelas_azure)
 
         redshift_cursor.execute("""SELECT table_name FROM information_schema.tables WHERE table_schema = 'dados'""")
         redshift_tables = [t[0] for t in redshift_cursor.fetchall()]
         print(redshift_tables)
 
         # Verificando se as tabelas existem no Redshift
-        for table_name in tabelas_mysql:
+        for table_name in tabelas_azure:
             print(table_name)
             if table_name not in redshift_tables:
                 tarefa_carga_total = PythonOperator(task_id=f'carga_total_{table_name}', python_callable=carga_total, op_kwargs={'table_name': table_name, 'dag': kwargs['dag']}, dag=kwargs['dag'])
@@ -128,8 +128,8 @@ def decisao(*args, **kwargs):
 
 # Definindo o DAG
 arvore_dag = DAG('arvore_dag', description='DAG para ingestao de dados do teste pratico Arvore',
-          schedule_interval='0 0 * * 0',
-          start_date=datetime(2024, 1, 22), catchup=False)
+          schedule_interval=None,  # Alterado para None
+          start_date=datetime(2024, 1, 28), catchup=False)
 
 # Definindo as tasks
 tarefa_decisao = PythonOperator(task_id='decisao', python_callable=decisao, op_kwargs={'dag': arvore_dag}, dag=arvore_dag, retries=0)
