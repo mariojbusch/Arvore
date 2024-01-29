@@ -24,7 +24,7 @@ def connect_redshift():
         user='u_arvore', 
         password='u_Arvore123', 
         port='5439', 
-        host='redshift-cluster-arvore.cgloaiwwwiza.sa-east-1.redshift.amazonaws.com'
+        host='redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com'
     )
 
 # Definindo as funções para a carga inicial e carga incremental
