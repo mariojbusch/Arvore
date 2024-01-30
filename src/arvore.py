@@ -10,30 +10,49 @@ logging.basicConfig(filename='arvore_dag.log', level=logging.INFO,
 
 # Função para conectar ao Azure SQL Database
 def connect_azure():
+    # Definindo as credenciais de conexão
     server = 'adventureworks-arvore.database.windows.net'
     database = 'AdventureWorks'
     username = 'administrador'
     password = '123Admin'
     driver= '{ODBC Driver 17 for SQL Server}'
-    return pyodbc.connect('DRIVER='+driver+';SERVER='+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
+    # Retornando a conexão
+    try:
+        conn = pyodbc.connect('DRIVER='+driver+';SERVER='+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
+        print("Conexão com Azure SQL Database estabelecida com sucesso.")
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao Azure SQL Database: {str(e)}")
+        return None
 
 # Função para conectar ao Redshift
 def connect_redshift():
-    return psycopg2.connect(
-        dbname='arvore', 
-        user='u_arvore', 
-        password='u_Arvore123', 
-        port='5439', 
-        host='redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com'
-    )
+    # Definindo as credenciais de conexão
+    dbname = 'arvore'
+    user = 'u_arvore'
+    password = 'u_Arvore123'
+    port = '5439'
+    host = 'redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com'
+    # Retornando a conexão
+    try:
+        conn = psycopg2.connect(dbname=dbname, user=user, password=password, port=port, host=host)
+        print("Conexão com Redshift estabelecida com sucesso.")
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao Redshift: {str(e)}")
+        return None
 
 # Definindo as funções para a carga inicial e carga incremental
 def carga_total(table_name, dag):
     try:
         # Lendo os dados do Azure SQL Database
         con_azure = connect_azure()
+        if con_azure is None:
+            return
         azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
+        if redshift_conn is None:
+            return
         redshift_cursor = redshift_conn.cursor()
         azure_cursor.execute(f"SELECT * FROM {table_name}")
         dado = azure_cursor.fetchall()
@@ -67,8 +86,12 @@ def carga_total(table_name, dag):
 def carga_incremental(table_name, dag):
     try:
         con_azure = connect_azure()
+        if con_azure is None:
+            return
         azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
+        if redshift_conn is None:
+            return
         redshift_cursor = redshift_conn.cursor()
         # Obtendo a data da última atualização no Redshift
         redshift_cursor.execute(f"SELECT MAX(updated_at) FROM dados.{table_name}")
@@ -88,6 +111,7 @@ def carga_incremental(table_name, dag):
                 # Se o registro existir, apague-o
                 exclusao = f"DELETE FROM dados.{table_name} WHERE id = {row[0]}"
                 redshift_cursor.execute(exclusao)
+
             # Insira o registro
             formatted_row = [str(item) if isinstance(item, datetime) else item for item in row]
             insere = f"INSERT INTO dados.{table_name} VALUES {tuple(formatted_row)}"
@@ -102,8 +126,12 @@ def carga_incremental(table_name, dag):
 def decisao(*args, **kwargs):
     try:
         con_azure = connect_azure()
+        if con_azure is None:
+            return
         azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
+        if redshift_conn is None:
+            return
         redshift_cursor = redshift_conn.cursor()
         azure_cursor.execute("SELECT table_name FROM information_schema.tables")
         tabelas_azure = [t[0] for t in azure_cursor.fetchall()]

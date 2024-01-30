@@ -1,2 +1,7 @@
+# Arquivo requirements.txt
+
+# Biblioteca para conectar ao Azure SQL Database
+pyodbc
+
+# Biblioteca para conectar ao Amazon Redshift
 psycopg2
-mysql-connector-python
