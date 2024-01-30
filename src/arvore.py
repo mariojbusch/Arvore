@@ -1,4 +1,5 @@
-import pyodbc
+from sqlalchemy import create_engine
+import psycopg2
 from datetime import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -15,10 +16,12 @@ def connect_azure():
     database = 'AdventureWorks'
     username = 'administrador'
     password = '123Admin'
-    driver= '{ODBC Driver 17 for SQL Server}'
+    # Construindo a string de conexão
+    connection_string = f'mssql+pymssql://{username}:{password}@{server}/{database}'
     # Retornando a conexão
     try:
-        conn = pyodbc.connect('DRIVER='+driver+';SERVER='+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
+        engine = create_engine(connection_string)
+        conn = engine.raw_connection()
         print("Conexão com Azure SQL Database estabelecida com sucesso.")
         return conn
     except Exception as e:
