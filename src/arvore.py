@@ -4,6 +4,7 @@ from datetime import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import logging
+import uuid
 
 # Configurando o logging
 logging.basicConfig(filename='arvore_dag.log', level=logging.INFO,
@@ -50,25 +51,34 @@ def carga_total(table_name, dag):
     try:
         # Lendo os dados do Azure SQL Database
         con_azure = connect_azure()
-        if con_azure is None:
-            return
         azure_cursor = con_azure.cursor()
         redshift_conn = connect_redshift()
-        if redshift_conn is None:
-            return
         redshift_cursor = redshift_conn.cursor()
-        azure_cursor.execute(f"SELECT * FROM {table_name}")
+        azure_cursor.execute(f"SELECT * FROM SalesLT.{table_name}")
         dado = azure_cursor.fetchall()
 
         # Obtendo a estrutura da tabela do Azure SQL Database
-        azure_cursor.execute(f"DESCRIBE {table_name}")
+        azure_cursor.execute(f"""SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+                                   FROM INFORMATION_SCHEMA.COLUMNS
+                                  WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = 'SalesLT'""")
         estrutura = azure_cursor.fetchall()
+        print(estrutura)
 
         # Criando a tabela no Redshift com a mesma estrutura
-        cria_tabela = f"CREATE TABLE dados.{table_name} ("
+        cria_tabela = f"CREATE TABLE IF NOT EXISTS dados.{table_name} ("
         for column in estrutura:
             if "unsigned" in column[1]:
                 cria_tabela += f"{column[0]} INTEGER, "
+            elif "bit" in column[1]:
+                cria_tabela += f"{column[0]} BOOLEAN, "
+            elif "xml" in column[1]:
+                cria_tabela += f"{column[0]} VARCHAR, "
+            elif "uniqueidentifier" in column[1]:
+                cria_tabela += f"{column[0]} VARCHAR, "
+            elif "money" in column[1]:
+                cria_tabela += f"{column[0]} DECIMAL, "
+            elif "tinyint" in column[1]:
+                cria_tabela += f"{column[0]} SMALLINT, "
             else:
                 cria_tabela += f"{column[0]} {column[1]}, "
         cria_tabela = cria_tabela.rstrip(", ") + ")"
@@ -77,8 +87,8 @@ def carga_total(table_name, dag):
 
         # Transferindo os dados para o Redshift
         for row in dado:
-            formatted_row = [str(item) if isinstance(item, datetime) else item for item in row]
-            insere = f"INSERT INTO dados.{table_name} VALUES {tuple(formatted_row)}"
+            formatted_row = ['NULL' if item is None else f"'{str(item).replace("'", "''")}'" if isinstance(item, datetime) or isinstance(item, str) or isinstance(item, uuid.UUID) else item for item in row]
+            insere = f"INSERT INTO dados.{table_name} VALUES ({','.join([str(elem) for elem in formatted_row])})"
             print(insere)  # Imprime a instrução INSERT
             redshift_cursor.execute(insere)
         redshift_conn.commit()  # Confirma a transação
@@ -96,13 +106,14 @@ def carga_incremental(table_name, dag):
         if redshift_conn is None:
             return
         redshift_cursor = redshift_conn.cursor()
+
         # Obtendo a data da última atualização no Redshift
         redshift_cursor.execute(f"SELECT MAX(updated_at) FROM dados.{table_name}")
         ultima_atualizacao = redshift_cursor.fetchone()[0]
 
         # Lendo os dados atualizados do Azure
         ultima_atualizacao_str = ultima_atualizacao.strftime('%Y-%m-%d %H:%M:%S')
-        azure_cursor.execute(f"SELECT * FROM {table_name} WHERE updated_at > '{ultima_atualizacao_str}'")
+        azure_cursor.execute(f"SELECT * FROM SalesLT.{table_name} WHERE updated_at > '{ultima_atualizacao_str}'")
         dado = azure_cursor.fetchall()
 
         # Atualizando os dados no Redshift
@@ -116,7 +127,8 @@ def carga_incremental(table_name, dag):
                 redshift_cursor.execute(exclusao)
 
             # Insira o registro
-            formatted_row = [str(item) if isinstance(item, datetime) else item for item in row]
+            formatted_row = ['NULL' if item is None else str(item) if isinstance(item, datetime) else str(item) for item in row]
+            formatted_row = [f"'{item}'" if isinstance(item, uuid.UUID) else item for item in formatted_row]
             insere = f"INSERT INTO dados.{table_name} VALUES {tuple(formatted_row)}"
             print(insere)  # Imprime a instrução INSERT
             redshift_cursor.execute(insere)
@@ -136,7 +148,7 @@ def decisao(*args, **kwargs):
         if redshift_conn is None:
             return
         redshift_cursor = redshift_conn.cursor()
-        azure_cursor.execute("SELECT table_name FROM information_schema.tables")
+        azure_cursor.execute("""SELECT table_name FROM information_schema.tables where table_schema = 'SalesLT'""")
         tabelas_azure = [t[0] for t in azure_cursor.fetchall()]
         print(tabelas_azure)
 
@@ -160,7 +172,7 @@ def decisao(*args, **kwargs):
 # Definindo o DAG
 arvore_dag = DAG('arvore_dag', description='DAG para ingestao de dados do teste pratico Arvore',
           schedule_interval=None,  # Alterado para None
-          start_date=datetime(2024, 1, 28), catchup=False)
+          start_date=datetime.now(), catchup=False)  # Alterado para a data atual
 
 # Definindo as tasks
 tarefa_decisao = PythonOperator(task_id='decisao', python_callable=decisao, op_kwargs={'dag': arvore_dag}, dag=arvore_dag, retries=0)
