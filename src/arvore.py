@@ -87,7 +87,7 @@ def carga_total(table_name, dag):
 
         # Transferindo os dados para o Redshift
         for row in dado:
-            formatted_row = ['NULL' if item is None else f"'{str(item).replace("'", "''")}'" if isinstance(item, datetime) or isinstance(item, str) or isinstance(item, uuid.UUID) else item for item in row]
+            formatted_row = ['NULL' if item is None else f"'{item}'" if isinstance(item, datetime) or isinstance(item, str) or isinstance(item, uuid.UUID) else item for item in row]
             insere = f"INSERT INTO dados.{table_name} VALUES ({','.join([str(elem) for elem in formatted_row])})"
             print(insere)  # Imprime a instrução INSERT
             redshift_cursor.execute(insere)
