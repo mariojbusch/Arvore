@@ -1,8 +1,8 @@
 import mysql.connector
 import psycopg2
 from datetime import datetime
-from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
+#from airflow import DAG
+#from airflow.operators.python_operator import PythonOperator
 import logging
 
 # Configurando o logging
@@ -12,20 +12,20 @@ logging.basicConfig(filename='arvore_dag.log', level=logging.INFO,
 # Função para conectar ao MySQL
 def connect_mysql():
     return mysql.connector.connect(
-      host="4.228.226.70",
-      user="u_arvore",
-      password="u_arvore",
-      database="arvore"
+      host="my-sql.mysql.database.azure.com",
+      user="my_sql",
+      password="Admin123",
+      database="classicmodels"
     )
 
 # Função para conectar ao Redshift
 def connect_redshift():
     return psycopg2.connect(
         dbname='arvore', 
-        user='u_arvore', 
-        password='u_Arvore123', 
+        user='redshift', 
+        password='Redshift123', 
         port='5439', 
-        host='redshift-cluster-arvore.cgloaiwwwiza.sa-east-1.redshift.amazonaws.com'
+        host='redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com'
     )
 
 # Definindo as funções para a carga inicial e carga incremental
@@ -127,12 +127,13 @@ def decisao(*args, **kwargs):
     except Exception as e:
         logging.error(f'Erro na execução da decisão: {str(e)}')
 
-# Definindo o DAG
-arvore_dag = DAG('arvore_dag', description='DAG para ingestao de dados do teste pratico Arvore',
-          schedule_interval='0 0 * * 0',
-          start_date=datetime(2024, 1, 22), catchup=False)
+decisao()
+# # Definindo o DAG
+# arvore_dag = DAG('arvore_dag', description='DAG para ingestao de dados do teste pratico Arvore',
+#           schedule_interval='0 0 * * 0',
+#           start_date=datetime(2024, 1, 22), catchup=False)
 
-# Definindo as tasks
-tarefa_decisao = PythonOperator(task_id='decisao', python_callable=decisao, op_kwargs={'dag': arvore_dag}, dag=arvore_dag, retries=0)
+# # Definindo as tasks
+# tarefa_decisao = PythonOperator(task_id='decisao', python_callable=decisao, op_kwargs={'dag': arvore_dag}, dag=arvore_dag, retries=0)
 
-tarefa_decisao
+# tarefa_decisao

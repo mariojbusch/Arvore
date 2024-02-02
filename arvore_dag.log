@@ -1,0 +1,12 @@
+2024-02-01 21:07:33,582:ERROR:Erro na execução da decisão: connection to server at "redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com" (172.31.33.10), port 5439 failed: Connection timed out (0x0000274C/10060)
+	Is the server running on that host and accepting TCP/IP connections?
+
+2024-02-01 21:16:18,500:ERROR:Erro na execução da decisão: connection to server at "redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com" (172.31.33.10), port 5439 failed: Connection timed out (0x0000274C/10060)
+	Is the server running on that host and accepting TCP/IP connections?
+
+2024-02-01 21:21:08,757:ERROR:Erro na execução da decisão: connection to server at "redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com" (172.31.33.10), port 5439 failed: Connection timed out (0x0000274C/10060)
+	Is the server running on that host and accepting TCP/IP connections?
+
+2024-02-01 21:24:22,089:ERROR:Erro na execução da decisão: connection to server at "redshift-cluster-arvore.cs12mzkyke5b.sa-east-1.redshift.amazonaws.com" (172.31.33.10), port 5439 failed: Connection timed out (0x0000274C/10060)
+	Is the server running on that host and accepting TCP/IP connections?
+
